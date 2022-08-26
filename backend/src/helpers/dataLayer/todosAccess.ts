@@ -1,9 +1,8 @@
 import * as AWS from 'aws-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
-import { createLogger } from '../utils/logger'
-import { TodoItem } from '../models/TodoItem'
-import { UpdateTodoRequest } from '../requests/UpdateTodoRequest'
-import * as uuid from 'uuid'
+import { createLogger } from '../../utils/logger'
+import { TodoItem } from '../../models/TodoItem'
+import { UpdateTodoRequest } from '../../requests/UpdateTodoRequest'
 
 const AWSXRay = require('aws-xray-sdk')
 const XAWS = AWSXRay.captureAWS(AWS)
@@ -77,7 +76,7 @@ export class TodosAccess {
     }
 
     generateUploadURL = async (userId: string, todoId: string): Promise<string> => {
-        const url = await getS3SignedUrl()
+        const url = await getS3SignedUrl(todoId)
         this.docClient.update({
             TableName: this.todosTable,
             Key: {
@@ -86,7 +85,7 @@ export class TodosAccess {
             },
             UpdateExpression: "set attachmentUrl = :attachmentUrl",
             ExpressionAttributeValues: {
-                ":attachmentUrl": url,
+                ":attachmentUrl": `https://${process.env.ATTACHMENT_S3_BUCKET}.s3.amazonaws.com/${todoId}`,
             }
         }, (err, data) => {
             if (err) {
@@ -107,11 +106,10 @@ export class TodosAccess {
     }
 }
 
-const getS3SignedUrl = async () => {
-    const imageId = uuid.v4()
+const getS3SignedUrl = async (todoId: string) => {
     const signedURL = await attachmentBucket.getSignedUrl("putObject", {
         Bucket: bucketName,
-        Key: imageId,
+        Key: todoId,
         Expires: URLExpiration,
     });
     return signedURL;
